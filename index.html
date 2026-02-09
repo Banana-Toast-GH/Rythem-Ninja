@@ -4,19 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rhythm Ninja</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.discordsays.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://discord.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://*.discordsays.com;">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://discord.com/assets/embedded-app-sdk.js"></script>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
             background-color: #020617;
             color: white;
             overflow: hidden;
-            font-family: 'Inter', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             user-select: none;
             touch-action: none;
         }
+        
         canvas { display: block; }
+        
         #ui-layer {
             position: fixed;
             top: 0;
@@ -26,56 +27,96 @@
             pointer-events: none;
             z-index: 10;
         }
+        
+        #album-art {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.15;
+            filter: blur(20px);
+            z-index: 0;
+            display: none;
+        }
+        
+        .ui-card {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .top-ui {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 32px;
+        }
+        
+        .score-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #94a3b8;
+            font-weight: bold;
+        }
+        
+        .score-value {
+            font-size: 36px;
+            font-weight: 900;
+            color: #22d3ee;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .accuracy-value {
+            font-size: 36px;
+            font-weight: 900;
+            color: #f472b6;
+        }
+        
+        #combo {
+            font-size: 70px;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.2);
+            transition: all 0.075s;
+            text-align: center;
+        }
+        
+        #judgement {
+            font-size: 24px;
+            font-weight: 900;
+            font-style: italic;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            height: 32px;
+            text-align: center;
+        }
+        
         .life-x {
             font-size: 40px;
             font-weight: 900;
             color: #334155;
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .life-x.active { 
-            color: #ff0055; 
-            text-shadow: 0 0 20px #ff0055; 
+        
+        .life-x.active {
+            color: #ff0055;
+            text-shadow: 0 0 20px #ff0055;
             transform: scale(1.2);
         }
         
-        .btn-diff {
-            transition: all 0.2s;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(15, 23, 42, 0.6);
+        #lives-container {
+            position: fixed;
+            bottom: 32px;
+            left: 32px;
+            display: flex;
+            gap: 12px;
         }
-        .btn-diff:hover { transform: translateY(-3px); background: rgba(255,255,255,0.1); box-shadow: 0 10px 20px -10px rgba(0,0,0,0.5); }
-        .btn-diff.selected { border-color: #22d3ee; background: rgba(34, 211, 238, 0.1); }
-
-        .song-card {
-            transition: all 0.2s;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        .song-card:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: rgba(34, 211, 238, 0.4);
-            transform: scale(1.02);
-        }
-
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         
-        @keyframes pulse-text {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        .pulse-logo { animation: pulse-text 2s infinite ease-in-out; }
-        
-        .combo-pop {
-            animation: combo-hit 0.15s ease-out;
-        }
-        @keyframes combo-hit {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-            100% { transform: scale(1); }
-        }
-
         #progress-bar-container {
             position: fixed;
             bottom: 32px;
@@ -83,11 +124,12 @@
             transform: translateX(-50%);
             width: 300px;
             height: 6px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             overflow: hidden;
             display: none;
         }
+        
         #progress-bar-fill {
             width: 0%;
             height: 100%;
@@ -103,44 +145,26 @@
             transform: translateX(-50%);
             font-size: 12px;
             font-weight: bold;
-            color: rgba(255,255,255,0.7);
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            color: rgba(255, 255, 255, 0.7);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
             display: none;
         }
-
-        #album-art {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.15;
-            filter: blur(20px);
-            z-index: 0;
-        }
-
+        
         .floating-score {
             position: fixed;
             font-size: 28px;
             font-weight: 900;
-            text-shadow: 0 0 10px currentColor, 0 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 0 10px currentColor, 0 2px 4px rgba(0, 0, 0, 0.8);
             pointer-events: none;
             z-index: 100;
             animation: float-up 1s ease-out forwards;
         }
-
+        
         @keyframes float-up {
-            0% {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: translateY(-80px) scale(0.8);
-            }
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-80px) scale(0.8); }
         }
-
+        
         @keyframes screen-shake {
             0%, 100% { transform: translate(0, 0); }
             10% { transform: translate(-5px, -5px); }
@@ -153,281 +177,450 @@
             80% { transform: translate(5px, -5px); }
             90% { transform: translate(-5px, 0); }
         }
-
-        .shake {
-            animation: screen-shake 0.3s ease-in-out;
+        
+        .shake { animation: screen-shake 0.3s ease-in-out; }
+        
+        .combo-pop { animation: combo-hit 0.15s ease-out; }
+        
+        @keyframes combo-hit {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
         }
-
-        #player-scores {
+        
+        /* Menu Styles */
+        .menu-screen {
             position: fixed;
-            top: 120px;
-            right: 32px;
-            max-height: 400px;
-            overflow-y: auto;
-            pointer-events: none;
-        }
-
-        .player-score-card {
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(10px);
-            padding: 12px 16px;
-            border-radius: 12px;
-            margin-bottom: 8px;
-            border: 2px solid;
-            min-width: 180px;
-        }
-
-        .mode-badge {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(10px);
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border: 2px solid #22d3ee;
-            color: #22d3ee;
-            pointer-events: none;
-        }
-
-        .leaderboard-screen {
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(20px);
-        }
-
-        .leaderboard-row {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.2s;
-        }
-
-        .leaderboard-row:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateX(5px);
-        }
-
-        .rank-medal {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            inset: 0;
+            z-index: 50;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 900;
-            font-size: 18px;
-            margin-right: 16px;
+            background: #0f172a;
+            padding: 16px;
         }
-
-        .rank-1 { background: linear-gradient(135deg, #ffd700, #ffed4e); color: #000; }
-        .rank-2 { background: linear-gradient(135deg, #c0c0c0, #e8e8e8); color: #000; }
-        .rank-3 { background: linear-gradient(135deg, #cd7f32, #e3a869); color: #000; }
-        .rank-other { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        
+        .menu-container {
+            max-width: 28rem;
+            width: 100%;
+            text-align: center;
+            padding: 32px;
+            background: #1e293b;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .menu-glow-1 {
+            position: absolute;
+            top: -96px;
+            left: -96px;
+            width: 192px;
+            height: 192px;
+            background: rgba(34, 211, 238, 0.2);
+            filter: blur(60px);
+            border-radius: 50%;
+        }
+        
+        .menu-glow-2 {
+            position: absolute;
+            bottom: -96px;
+            right: -96px;
+            width: 192px;
+            height: 192px;
+            background: rgba(244, 114, 182, 0.2);
+            filter: blur(60px);
+            border-radius: 50%;
+        }
+        
+        h1 {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, #22d3ee, #10b981, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: pulse-text 2s infinite ease-in-out;
+            margin-bottom: 8px;
+        }
+        
+        @keyframes pulse-text {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .tagline {
+            color: #94a3b8;
+            font-style: italic;
+            margin-bottom: 32px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .menu-section {
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .menu-title {
+            color: white;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+        
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.6);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .btn.selected {
+            border-color: #22d3ee;
+            background: rgba(34, 211, 238, 0.1);
+        }
+        
+        .btn-easy { color: #4ade80; }
+        .btn-normal { color: #22d3ee; }
+        .btn-hard { color: #fb923c; }
+        .btn-insane { color: #ef4444; }
+        
+        .upload-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 16px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-area:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .upload-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #22d3ee;
+        }
+        
+        .upload-subtitle {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 2px solid transparent;
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 16px auto;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .back-btn {
+            font-size: 12px;
+            color: #64748b;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        
+        .back-btn:hover { color: white; }
+        
+        .hidden { display: none !important; }
+        
+        /* Ready Screen */
+        .ready-screen {
+            max-width: 32rem;
+        }
+        
+        .ready-title {
+            font-size: 40px;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 8px;
+        }
+        
+        .ready-artist {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 32px;
+        }
+        
+        .ready-stars {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 32px;
+            font-size: 30px;
+        }
+        
+        .ready-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 16px 32px;
+            background: #22d3ee;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: #06b6d4;
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(34, 211, 238, 0.5);
+        }
+        
+        /* Result Screens */
+        .result-screen {
+            max-width: 28rem;
+        }
+        
+        .result-title {
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 24px;
+        }
+        
+        .game-over-title {
+            color: #ef4444;
+        }
+        
+        .stage-clear-title {
+            background: linear-gradient(135deg, #22d3ee, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .rank-display {
+            font-size: 96px;
+            font-weight: 900;
+            margin-bottom: 24px;
+            text-shadow: 0 0 40px currentColor;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 16px;
+            border-radius: 12px;
+        }
+        
+        .stat-card.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+        
+        .result-value {
+            font-size: 24px;
+            font-weight: 900;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
-
-    <img id="album-art" style="display: none;">
+    <img id="album-art">
     <canvas id="canvas"></canvas>
 
-    <div id="mode-indicator" class="mode-badge" style="display: none;">
-        SOLO MODE
-    </div>
-
     <div id="ui-layer">
-        <div class="p-8 flex justify-between items-start">
-            <div id="solo-score-display" class="bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-2xl">
-                <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Score</div>
-                <div id="score" class="text-4xl font-black text-cyan-400 tabular-nums">0000</div>
+        <div class="top-ui">
+            <div class="ui-card">
+                <div class="score-label">Score</div>
+                <div class="score-value" id="score">0000</div>
             </div>
-            <div class="text-center">
-                <div id="combo" class="text-7xl font-black text-white/20 transition-all duration-75">0</div>
-                <div id="judgement" class="text-2xl font-black italic uppercase tracking-tighter h-8"></div>
+            <div style="text-align: center;">
+                <div id="combo">0</div>
+                <div id="judgement"></div>
             </div>
-            <div class="bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-2xl text-right">
-                <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Accuracy</div>
-                <div id="accuracy" class="text-4xl font-black text-fuchsia-400">100%</div>
+            <div class="ui-card" style="text-align: right;">
+                <div class="score-label">Accuracy</div>
+                <div class="accuracy-value" id="accuracy">100%</div>
             </div>
         </div>
-
-        <div id="player-scores"></div>
 
         <div id="progress-bar-container">
             <div id="progress-bar-fill"></div>
         </div>
         <div id="timer-text">0:00 / 0:00</div>
 
-        <div id="lives-container" class="fixed bottom-8 left-8 flex gap-3">
+        <div id="lives-container">
             <span class="life-x" id="x-1">X</span>
             <span class="life-x" id="x-2">X</span>
             <span class="life-x" id="x-3">X</span>
         </div>
     </div>
 
-    <div id="menu" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4">
-        <div class="max-w-md w-full text-center space-y-6 p-8 bg-slate-900 rounded-3xl border border-white/10 shadow-2xl overflow-hidden relative">
-            <div class="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/20 blur-3xl rounded-full"></div>
-            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-fuchsia-500/20 blur-3xl rounded-full"></div>
+    <!-- Menu -->
+    <div id="menu" class="menu-screen">
+        <div class="menu-container">
+            <div class="menu-glow-1"></div>
+            <div class="menu-glow-2"></div>
             
-            <h1 class="text-5xl font-black tracking-tighter bg-gradient-to-br from-cyan-400 via-emerald-400 to-fuchsia-500 bg-clip-text text-transparent pulse-logo">RHYTHM NINJA</h1>
+            <h1>RHYTHM NINJA</h1>
+            <p class="tagline">"Feel the Beat, Slice the Heat"</p>
             
-            <div id="mode-selection" class="space-y-4 relative z-10">
-                <p class="text-slate-400 font-medium italic">"Feel the Beat, Slice the Heat"</p>
-                <p class="text-white font-bold">Choose Game Mode</p>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="selectMode('solo')" class="btn-diff p-4 rounded-xl text-cyan-400 font-bold hover:shadow-cyan-500/20">
-                        <div class="text-lg">👤 SOLO</div>
-                        <div class="text-xs text-slate-400 mt-1">Play Alone</div>
-                    </button>
-                    <button onclick="selectMode('vs')" class="btn-diff p-4 rounded-xl text-fuchsia-400 font-bold hover:shadow-fuchsia-500/20">
-                        <div class="text-lg">⚔️ VS MODE</div>
-                        <div class="text-xs text-slate-400 mt-1">Multiplayer</div>
-                    </button>
+            <div id="step-difficulty" class="menu-section">
+                <p class="menu-title">Choose Difficulty</p>
+                <div class="button-grid">
+                    <button onclick="setDifficulty('easy', this)" class="btn btn-easy">EASY</button>
+                    <button onclick="setDifficulty('normal', this)" class="btn btn-normal">NORMAL</button>
+                    <button onclick="setDifficulty('hard', this)" class="btn btn-hard">HARD</button>
+                    <button onclick="setDifficulty('insane', this)" class="btn btn-insane">INSANE</button>
                 </div>
             </div>
 
-            <div id="setup-step-1" class="hidden space-y-4 relative z-10">
-                <p class="text-slate-400 font-medium italic">"Feel the Beat, Slice the Heat"</p>
-                <p class="text-white font-bold">Step 1: Choose Difficulty</p>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="setDifficulty('easy', this)" class="btn-diff p-4 rounded-xl text-green-400 font-bold hover:shadow-green-500/20">EASY</button>
-                    <button onclick="setDifficulty('normal', this)" class="btn-diff p-4 rounded-xl text-cyan-400 font-bold hover:shadow-cyan-500/20">NORMAL</button>
-                    <button onclick="setDifficulty('hard', this)" class="btn-diff p-4 rounded-xl text-orange-400 font-bold hover:shadow-orange-500/20">HARD</button>
-                    <button onclick="setDifficulty('insane', this)" class="btn-diff p-4 rounded-xl text-red-500 font-bold hover:shadow-red-500/20">INSANE</button>
-                </div>
-            </div>
-
-            <div id="setup-step-2" class="hidden space-y-4 relative z-10">
-                <div class="flex justify-between items-center px-1">
-                    <p class="text-white font-bold">Step 2: Music Selection</p>
-                    <button onclick="backToDifficulty()" class="text-xs text-slate-500 hover:text-white underline">Back</button>
+            <div id="step-song" class="hidden menu-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <p class="menu-title" style="margin: 0;">Upload Your Track</p>
+                    <span onclick="backToDifficulty()" class="back-btn">Back</span>
                 </div>
                 
-                <div id="song-library" class="custom-scroll max-h-56 overflow-y-auto space-y-2 pr-1">
-                    <!-- Song cards added via JS -->
-                </div>
+                <label class="upload-area">
+                    <span class="upload-title">UPLOAD CUSTOM TRACK</span>
+                    <span class="upload-subtitle">Supports .mp3, .wav, .m4a</span>
+                    <input type="file" id="audioUpload" accept="audio/*" style="display: none;" onchange="handleFileUpload(event)">
+                </label>
 
-                <div class="pt-2 border-t border-white/10">
-                    <label class="flex flex-col items-center justify-center w-full p-4 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:bg-white/5 transition-colors pointer-events-auto">
-                        <span class="text-sm font-bold text-cyan-400">UPLOAD CUSTOM TRACK</span>
-                        <span class="text-[10px] text-slate-500 mt-1">Supports .mp3, .wav, .m4a</span>
-                        <input type="file" id="audioUpload" accept="audio/*" class="hidden" onchange="handleFileUpload(event)">
-                    </label>
-                </div>
-
-                <div id="loading-spinner" class="hidden py-4">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mx-auto"></div>
-                    <p class="text-xs text-slate-500 mt-2">Preparing Stage...</p>
-                </div>
-            </div>
-
-            <div id="lobby-screen" class="hidden space-y-4 relative z-10">
-                <p class="text-white font-bold text-2xl">VS Mode Lobby</p>
-                <div class="bg-black/40 p-4 rounded-xl">
-                    <div class="text-sm text-slate-400 mb-2">Players in Lobby</div>
-                    <div id="lobby-players" class="space-y-2">
-                        <!-- Players appear here -->
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="backToMode()" class="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-white transition-all">Back</button>
-                    <button onclick="startVSGame()" class="flex-1 px-4 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-xl font-bold text-white transition-all shadow-lg hover:shadow-cyan-500/50">Start Game</button>
+                <div id="loading-spinner" class="hidden">
+                    <div class="spinner"></div>
+                    <p style="font-size: 12px; color: #64748b;">Preparing Stage...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="game-over" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
-        <div class="text-center p-10 bg-slate-900 rounded-3xl border border-red-500/50 shadow-2xl max-w-md">
-            <div class="text-6xl font-black text-red-500 mb-4">GAME OVER</div>
-            <div class="space-y-2 mb-6">
-                <div class="text-slate-400">Final Score</div>
-                <div id="fail-score" class="text-5xl font-black text-white">0</div>
-                <div class="text-slate-400 mt-3">Accuracy</div>
-                <div id="fail-accuracy" class="text-3xl font-bold text-fuchsia-400">0%</div>
-            </div>
-            <button onclick="location.reload()" class="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-xl font-bold text-white transition-all shadow-lg hover:shadow-cyan-500/50">TRY AGAIN</button>
-        </div>
-    </div>
+    <!-- Ready Screen -->
+    <div id="ready-screen" class="hidden menu-screen">
+        <div class="menu-container ready-screen">
+            <h2 class="ready-title" id="ready-song-title">Song Name</h2>
+            <p class="ready-artist" id="ready-song-artist">Artist</p>
 
-    <div id="results-screen" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
-        <div class="text-center p-10 bg-slate-900 rounded-3xl border border-cyan-500/50 shadow-2xl max-w-md">
-            <div class="text-6xl font-black bg-gradient-to-br from-cyan-400 to-fuchsia-500 bg-clip-text text-transparent mb-6">STAGE CLEAR!</div>
-            <div class="text-9xl font-black mb-6" id="final-rank" style="text-shadow: 0 0 40px currentColor;">S</div>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-black/40 p-4 rounded-xl">
-                    <div class="text-xs text-slate-400 uppercase">Score</div>
-                    <div id="res-score" class="text-2xl font-black text-cyan-400">0</div>
-                </div>
-                <div class="bg-black/40 p-4 rounded-xl">
-                    <div class="text-xs text-slate-400 uppercase">Accuracy</div>
-                    <div id="res-accuracy" class="text-2xl font-black text-fuchsia-400">100%</div>
-                </div>
-                <div class="bg-black/40 p-4 rounded-xl col-span-2">
-                    <div class="text-xs text-slate-400 uppercase">Misses</div>
-                    <div id="res-misses" class="text-2xl font-black text-orange-400">0</div>
-                </div>
-            </div>
-            <button onclick="location.reload()" class="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-xl font-bold text-white transition-all shadow-lg hover:shadow-cyan-500/50">PLAY AGAIN</button>
-        </div>
-    </div>
+            <div class="ready-stars" id="ready-difficulty-stars"></div>
 
-    <div id="leaderboard-screen" class="hidden fixed inset-0 z-50 flex items-center justify-center leaderboard-screen">
-        <div class="max-w-2xl w-full p-10 space-y-6">
-            <div class="text-center mb-8">
-                <div class="text-6xl font-black bg-gradient-to-br from-cyan-400 to-fuchsia-500 bg-clip-text text-transparent mb-2">FINAL RESULTS</div>
-                <div class="text-slate-400">VS Mode Leaderboard</div>
-            </div>
-            
-            <div id="leaderboard-content" class="space-y-3">
-                <!-- Leaderboard rows inserted here -->
-            </div>
-
-            <div class="text-center pt-6">
-                <button onclick="location.reload()" class="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-xl font-bold text-white transition-all shadow-lg hover:shadow-cyan-500/50">PLAY AGAIN</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="ready-screen" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
-        <div class="max-w-lg w-full p-10 text-center space-y-8 bg-slate-900 rounded-3xl border border-white/10 shadow-2xl">
-            <div class="space-y-2">
-                <div class="text-5xl font-black text-white" id="ready-song-title">Song Name</div>
-                <div class="text-sm text-slate-400" id="ready-song-artist">Artist</div>
-            </div>
-
-            <div class="flex justify-center gap-2" id="ready-difficulty-stars">
-                <!-- Stars inserted here -->
-            </div>
-
-            <div class="grid grid-cols-3 gap-4 text-sm text-slate-400">
+            <div class="ready-stats">
                 <div>
-                    <div class="text-xs uppercase tracking-wider mb-1">BPM</div>
-                    <div class="text-lg font-bold text-white" id="ready-bpm">---</div>
+                    <div class="stat-label">BPM</div>
+                    <div class="stat-value" id="ready-bpm">---</div>
                 </div>
                 <div>
-                    <div class="text-xs uppercase tracking-wider mb-1">Notes</div>
-                    <div class="text-lg font-bold text-white" id="ready-notes">~0</div>
+                    <div class="stat-label">Notes</div>
+                    <div class="stat-value" id="ready-notes">~0</div>
                 </div>
                 <div>
-                    <div class="text-xs uppercase tracking-wider mb-1">Duration</div>
-                    <div class="text-lg font-bold text-white" id="ready-duration">0:00</div>
+                    <div class="stat-label">Duration</div>
+                    <div class="stat-value" id="ready-duration">0:00</div>
                 </div>
             </div>
 
-            <button onclick="startGameFromReady()" class="w-full px-8 py-4 bg-cyan-500 hover:bg-cyan-400 rounded-xl font-bold text-white text-xl transition-all shadow-lg hover:shadow-cyan-500/50 hover:scale-105">
-                LET'S GO!
-            </button>
+            <button onclick="startGameFromReady()" class="btn-primary">LET'S GO!</button>
+        </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over" class="hidden menu-screen" style="background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px);">
+        <div class="menu-container result-screen">
+            <div class="result-title game-over-title">GAME OVER</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="result-label">Final Score</div>
+                    <div class="result-value" id="fail-score" style="color: white;">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="result-label">Accuracy</div>
+                    <div class="result-value" id="fail-accuracy" style="color: #f472b6;">0%</div>
+                </div>
+            </div>
+            <button onclick="location.reload()" class="btn-primary">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results-screen" class="hidden menu-screen" style="background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px);">
+        <div class="menu-container result-screen">
+            <div class="result-title stage-clear-title">STAGE CLEAR!</div>
+            <div class="rank-display" id="final-rank">S</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="result-label">Score</div>
+                    <div class="result-value" id="res-score" style="color: #22d3ee;">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="result-label">Accuracy</div>
+                    <div class="result-value" id="res-accuracy" style="color: #f472b6;">100%</div>
+                </div>
+                <div class="stat-card full-width">
+                    <div class="result-label">Misses</div>
+                    <div class="result-value" id="res-misses" style="color: #fb923c;">0</div>
+                </div>
+            </div>
+            <button onclick="location.reload()" class="btn-primary">PLAY AGAIN</button>
         </div>
     </div>
 
@@ -446,16 +639,6 @@
         const timerText = document.getElementById('timer-text');
         const albumArt = document.getElementById('album-art');
 
-        // Multiplayer variables
-        let gameMode = 'solo'; // 'solo' or 'vs'
-        let discordSdk = null;
-        let players = new Map(); // Map of userId -> player data
-        let currentUserId = 'local-player';
-        let playerColors = [
-            '#22d3ee', '#f472b6', '#a78bfa', '#fb923c', 
-            '#4ade80', '#fbbf24', '#f87171', '#60a5fa'
-        ];
-
         let difficulty = 'normal';
         let audioCtx, analyzer, source, buffer;
         let isPlaying = false, isMouseDown = false, mouseX = 0, mouseY = 0;
@@ -463,10 +646,8 @@
         let score = 0, combo = 0, lives = 3, misses = 0;
         let prevVolume = 0, spikeHistory = [], lastBeatTime = 0;
         let totalAccuracyPoints = 0, totalSpawns = 0;
-        let bgPulse = 0, gameSpeed = 1, isDying = false, isCleared = false;
-        let uploadedAudioFile = null;
+        let bgPulse = 0, gameSpeed = 1, isDying = false;
         
-        // Song metadata for ready screen
         let songMetadata = {
             title: 'Unknown Track',
             artist: 'Unknown Artist',
@@ -476,7 +657,6 @@
 
         const HISTORY_SIZE = 10;
 
-        // New fruit types with colors and emojis
         const FRUIT_TYPES = [
             { name: 'apple', color: '#ff3838', emoji: '🍎' },
             { name: 'orange', color: '#ff9500', emoji: '🍊' },
@@ -490,7 +670,6 @@
             { name: 'cherry', color: '#d50000', emoji: '🍒' }
         ];
 
-        // Power-up types
         const POWERUP_TYPES = [
             { name: 'double', color: '#ffd700', emoji: '✨', effect: 'Double Points!' },
             { name: 'slow', color: '#00bcd4', emoji: '⏱️', effect: 'Slow Motion!' },
@@ -500,120 +679,22 @@
         let activePowerup = null;
         let powerupEndTime = 0;
 
-        const songLibrary = [
-            // Upload your own audio files
-        ];
-
-        // Initialize Discord SDK
-        async function initDiscord() {
-            try {
-                if (typeof DiscordSDK !== 'undefined') {
-                    discordSdk = new DiscordSDK('{YOUR_CLIENT_ID}'); // Replace with actual client ID
-                    await discordSdk.ready();
-                    
-                    const { user } = await discordSdk.commands.authenticate();
-                    currentUserId = user.id;
-                    
-                    // Initialize local player
-                    const colorIndex = 0;
-                    players.set(currentUserId, {
-                        id: currentUserId,
-                        username: user.username,
-                        score: 0,
-                        combo: 0,
-                        accuracy: 100,
-                        color: playerColors[colorIndex],
-                        lives: 3,
-                        mouseX: 0,
-                        mouseY: 0,
-                        trail: []
-                    });
-
-                    // Subscribe to activity updates
-                    discordSdk.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', handleParticipantsUpdate);
-                }
-            } catch (error) {
-                console.log('Not running in Discord, using solo mode');
-            }
-        }
-
-        function handleParticipantsUpdate(data) {
-            // Handle players joining/leaving
-            console.log('Participants updated:', data);
-        }
-
-        function selectMode(mode) {
-            gameMode = mode;
-            document.getElementById('mode-selection').classList.add('hidden');
-            
-            if (mode === 'solo') {
-                document.getElementById('setup-step-1').classList.remove('hidden');
-                document.getElementById('mode-indicator').textContent = 'SOLO MODE';
-            } else {
-                document.getElementById('lobby-screen').classList.remove('hidden');
-                document.getElementById('mode-indicator').textContent = 'VS MODE';
-                updateLobbyPlayers();
-            }
-            document.getElementById('mode-indicator').style.display = 'block';
-        }
-
-        function backToMode() {
-            document.getElementById('lobby-screen').classList.add('hidden');
-            document.getElementById('mode-selection').classList.remove('hidden');
-            document.getElementById('mode-indicator').style.display = 'none';
-        }
-
-        function updateLobbyPlayers() {
-            const lobbyPlayersEl = document.getElementById('lobby-players');
-            lobbyPlayersEl.innerHTML = '';
-            
-            players.forEach(player => {
-                const playerCard = document.createElement('div');
-                playerCard.className = 'flex items-center gap-3 bg-black/20 p-3 rounded-lg';
-                playerCard.innerHTML = `
-                    <div class="w-3 h-3 rounded-full" style="background-color: ${player.color}"></div>
-                    <div class="flex-1 font-bold">${player.username}</div>
-                    <div class="text-xs text-slate-400">Ready</div>
-                `;
-                lobbyPlayersEl.appendChild(playerCard);
-            });
-        }
-
-        function startVSGame() {
-            document.getElementById('lobby-screen').classList.add('hidden');
-            document.getElementById('setup-step-1').classList.remove('hidden');
-        }
-
-        function initLibrary() {
-            const lib = document.getElementById('song-library');
-            lib.innerHTML = '';
-            songLibrary.forEach((song, idx) => {
-                const card = document.createElement('div');
-                card.className = 'song-card p-3 rounded-xl cursor-pointer';
-                card.innerHTML = `<div class="font-bold text-sm text-white">${song.title}</div><div class="text-xs text-slate-400">${song.artist}</div>`;
-                card.onclick = () => loadSong(song.url, song.title);
-                lib.appendChild(card);
-            });
-        }
-
         function setDifficulty(diff, btn) {
             difficulty = diff;
-            document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
-            document.getElementById('setup-step-1').classList.add('hidden');
-            document.getElementById('setup-step-2').classList.remove('hidden');
+            document.getElementById('step-difficulty').classList.add('hidden');
+            document.getElementById('step-song').classList.remove('hidden');
         }
 
         function backToDifficulty() {
-            document.getElementById('setup-step-1').classList.remove('hidden');
-            document.getElementById('setup-step-2').classList.add('hidden');
+            document.getElementById('step-difficulty').classList.remove('hidden');
+            document.getElementById('step-song').classList.add('hidden');
         }
 
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
-            uploadedAudioFile = file;
             loadSongFromFile(file);
             extractAlbumArt(file);
         }
@@ -622,7 +703,6 @@
             document.getElementById('loading-spinner').classList.remove('hidden');
             
             try {
-                // Initialize audio context on user interaction
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 }
@@ -632,7 +712,6 @@
                     analyzer.fftSize = 512;
                 }
 
-                // Read file directly using FileReader
                 const arrayBuffer = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = (e) => resolve(e.target.result);
@@ -642,12 +721,10 @@
 
                 buffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                // Set song metadata
-                songMetadata.title = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+                songMetadata.title = file.name.replace(/\.[^/.]+$/, "");
                 songMetadata.artist = 'Unknown Artist';
                 songMetadata.duration = buffer.duration;
                 
-                // Estimate BPM from beat detection
                 estimateBPM();
                 
                 document.getElementById('loading-spinner').classList.add('hidden');
@@ -665,7 +742,6 @@
                 const arrayBuffer = e.target.result;
                 const uint8Array = new Uint8Array(arrayBuffer);
                 
-                // Simple ID3v2 tag parser for APIC (album art)
                 if (uint8Array[0] === 0x49 && uint8Array[1] === 0x44 && uint8Array[2] === 0x33) {
                     const tagSize = ((uint8Array[6] & 0x7f) << 21) | ((uint8Array[7] & 0x7f) << 14) | 
                                     ((uint8Array[8] & 0x7f) << 7) | (uint8Array[9] & 0x7f);
@@ -706,65 +782,78 @@
             reader.readAsArrayBuffer(file);
         }
 
-        async function loadSong(url, title) {
-            document.getElementById('loading-spinner').classList.remove('hidden');
-            
-            try {
-                // Initialize audio context on user interaction
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                if (!analyzer) {
-                    analyzer = audioCtx.createAnalyser();
-                    analyzer.fftSize = 512;
-                }
-
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                buffer = await audioCtx.decodeAudioData(arrayBuffer);
-                
-                document.getElementById('loading-spinner').classList.add('hidden');
-                startGame();
-            } catch (e) {
-                console.error('Error loading audio:', e);
-                alert('Error loading audio: ' + e.message);
-                document.getElementById('loading-spinner').classList.add('hidden');
-            }
-        }
-
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function updatePlayerScoresUI() {
-            if (gameMode !== 'vs') return;
+        function estimateBPM() {
+            const duration = buffer.duration;
+            let estimatedBPM = 120;
             
-            const playerScoresEl = document.getElementById('player-scores');
-            playerScoresEl.innerHTML = '';
+            if (difficulty === 'easy') estimatedBPM = 90 + Math.floor(Math.random() * 30);
+            else if (difficulty === 'normal') estimatedBPM = 110 + Math.floor(Math.random() * 40);
+            else if (difficulty === 'hard') estimatedBPM = 130 + Math.floor(Math.random() * 50);
+            else if (difficulty === 'insane') estimatedBPM = 150 + Math.floor(Math.random() * 50);
             
-            // Sort players by score
-            const sortedPlayers = Array.from(players.values()).sort((a, b) => b.score - a.score);
+            songMetadata.bpm = estimatedBPM;
+        }
+
+        function showReadyScreen() {
+            document.getElementById('menu').classList.add('hidden');
             
-            sortedPlayers.forEach((player, index) => {
-                const card = document.createElement('div');
-                card.className = 'player-score-card';
-                card.style.borderColor = player.color;
-                card.innerHTML = `
-                    <div class="flex items-center justify-between mb-1">
-                        <div class="font-bold text-sm" style="color: ${player.color}">${player.username}</div>
-                        <div class="text-xs text-slate-400">#${index + 1}</div>
-                    </div>
-                    <div class="text-2xl font-black" style="color: ${player.color}">${player.score}</div>
-                    <div class="flex justify-between text-xs text-slate-400 mt-1">
-                        <span>Combo: ${player.combo}</span>
-                        <span>${player.accuracy}%</span>
-                    </div>
-                `;
-                playerScoresEl.appendChild(card);
-            });
+            document.getElementById('ready-song-title').textContent = songMetadata.title;
+            document.getElementById('ready-song-artist').textContent = songMetadata.artist;
+            document.getElementById('ready-bpm').textContent = songMetadata.bpm;
+            document.getElementById('ready-duration').textContent = formatTime(songMetadata.duration);
+            
+            let noteMultiplier = 1;
+            if (difficulty === 'easy') noteMultiplier = 0.5;
+            else if (difficulty === 'normal') noteMultiplier = 1;
+            else if (difficulty === 'hard') noteMultiplier = 1.5;
+            else if (difficulty === 'insane') noteMultiplier = 2.5;
+            
+            const estimatedNotes = Math.floor((songMetadata.duration / 60) * songMetadata.bpm * noteMultiplier * 0.5);
+            document.getElementById('ready-notes').textContent = '~' + estimatedNotes;
+            
+            const starsContainer = document.getElementById('ready-difficulty-stars');
+            starsContainer.innerHTML = '';
+            let starCount = 1;
+            if (difficulty === 'normal') starCount = 2;
+            else if (difficulty === 'hard') starCount = 3;
+            else if (difficulty === 'insane') starCount = 5;
+            
+            for (let i = 0; i < 5; i++) {
+                const star = document.createElement('div');
+                star.textContent = i < starCount ? '⭐' : '☆';
+                starsContainer.appendChild(star);
+            }
+            
+            document.getElementById('ready-screen').classList.remove('hidden');
+        }
+
+        function startGameFromReady() {
+            document.getElementById('ready-screen').classList.add('hidden');
+            startGame();
+        }
+
+        function startGame() {
+            progressBarContainer.style.display = 'block';
+            timerText.style.display = 'block';
+            
+            source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(analyzer);
+            analyzer.connect(audioCtx.destination);
+            source.start(0);
+            isPlaying = true;
+
+            source.onended = () => {
+                if (!isDying && isPlaying) showResults();
+            };
+
+            gameLoop();
         }
 
         class Fruit {
@@ -780,7 +869,7 @@
                 this.x = Math.random() * (canvas.width - 200) + 100;
                 this.y = canvas.height + 50;
                 this.vx = (Math.random() - 0.5) * 8;
-                this.vy = -(18 + Math.random() * 10); // Increased from 15+8 to 18+10 for higher launch
+                this.vy = -(18 + Math.random() * 10);
                 this.rotation = Math.random() * Math.PI * 2;
                 this.rotationSpeed = (Math.random() - 0.5) * 0.2;
                 this.radius = isBomb ? 35 : (hasPowerup ? 40 : 30);
@@ -789,7 +878,6 @@
             }
 
             update() {
-                // Gravity should be scaled with gameSpeed so physics stay consistent
                 this.vy += this.gravity * gameSpeed;
                 this.x += this.vx * gameSpeed;
                 this.y += this.vy * gameSpeed;
@@ -1050,8 +1138,6 @@
             if (fruit.sliced || isDying) return;
             fruit.sliced = true;
             
-            const currentPlayer = players.get(currentUserId);
-            
             if (fruit.isBomb) {
                 createBombExplosion(fruit.x, fruit.y);
                 playSound(100, 'sawtooth', 0.5, 0.3);
@@ -1061,12 +1147,6 @@
                 lives--;
                 updateLivesUI();
                 
-                if (currentPlayer) {
-                    currentPlayer.combo = 0;
-                    currentPlayer.lives--;
-                }
-                
-                // Slow-mo effect on bomb hit
                 gameSpeed = 0.3;
                 setTimeout(() => {
                     if (!isDying) gameSpeed = 1;
@@ -1125,15 +1205,7 @@
             const finalPoints = points + comboMult * 2;
             score += finalPoints;
 
-            // Update player data
-            if (currentPlayer) {
-                currentPlayer.score = score;
-                currentPlayer.combo = combo;
-            }
-
-            const playerColor = currentPlayer ? currentPlayer.color : '#22d3ee';
-            // Show floating score at the fruit position (where the slice happened)
-            createFloatingScore(finalPoints, fruit.x, fruit.y, playerColor);
+            createFloatingScore(finalPoints, fruit.x, fruit.y, '#22d3ee');
 
             totalAccuracyPoints += accuracyPts;
             scoreEl.innerText = score.toString().padStart(4, '0');
@@ -1147,14 +1219,8 @@
             showJudgement(judgement, color);
             playSound(440 + combo * 10, 'sine', 0.15, 0.08);
 
-            const currentAccuracy = totalSpawns > 0 ? Math.round((totalAccuracyPoints / totalSpawns)) : 100;
+            const currentAccuracy = totalSpawns > 0 ? Math.round(totalAccuracyPoints / totalSpawns) : 100;
             accuracyEl.innerText = currentAccuracy + "%";
-            
-            if (currentPlayer) {
-                currentPlayer.accuracy = currentAccuracy;
-            }
-
-            updatePlayerScoresUI();
         }
 
         function activatePowerup(type) {
@@ -1166,11 +1232,6 @@
             } else if (type.name === 'shield') {
                 lives = Math.min(lives + 1, 3);
                 updateLivesUI();
-                
-                const currentPlayer = players.get(currentUserId);
-                if (currentPlayer) {
-                    currentPlayer.lives = lives;
-                }
             }
         }
 
@@ -1215,22 +1276,6 @@
         function triggerDeath() {
             if (isDying) return;
             isDying = true;
-            
-            // In VS mode, only mark this player as dead, don't end the game
-            if (gameMode === 'vs') {
-                const currentPlayer = players.get(currentUserId);
-                if (currentPlayer) {
-                    currentPlayer.isDead = true;
-                }
-                // Show game over overlay but keep the game running for others
-                document.getElementById('game-over').classList.remove('hidden');
-                document.getElementById('fail-score').innerText = score;
-                document.getElementById('fail-accuracy').innerText = accuracyEl.innerText;
-                // Don't stop the music or game loop
-                return;
-            }
-            
-            // Solo mode - do the slow-mo death
             gameSpeed = 0.3;
             const loop = () => {
                 gameSpeed *= 0.9;
@@ -1244,76 +1289,32 @@
         function endGame() {
             isPlaying = false; 
             if (source) source.stop();
-            
-            if (gameMode === 'vs') {
-                showLeaderboard();
-            } else {
-                document.getElementById('game-over').classList.remove('hidden');
-                document.getElementById('fail-score').innerText = score;
-                document.getElementById('fail-accuracy').innerText = accuracyEl.innerText;
-            }
+            document.getElementById('game-over').classList.remove('hidden');
+            document.getElementById('fail-score').innerText = score;
+            document.getElementById('fail-accuracy').innerText = accuracyEl.innerText;
         }
 
         function showResults() {
             if (isDying) return;
             isPlaying = false;
-            isCleared = true;
+            const accuracy = totalSpawns > 0 ? Math.round(totalAccuracyPoints / totalSpawns) : 100;
             
-            if (gameMode === 'vs') {
-                showLeaderboard();
-            } else {
-                const accuracy = totalSpawns > 0 ? Math.round(totalAccuracyPoints / totalSpawns) : 100;
-                
-                let rank = 'D';
-                if (accuracy >= 98) rank = 'S';
-                else if (accuracy >= 90) rank = 'A';
-                else if (accuracy >= 80) rank = 'B';
-                else if (accuracy >= 70) rank = 'C';
+            let rank = 'D';
+            if (accuracy >= 98) rank = 'S';
+            else if (accuracy >= 90) rank = 'A';
+            else if (accuracy >= 80) rank = 'B';
+            else if (accuracy >= 70) rank = 'C';
 
-                document.getElementById('res-score').innerText = score;
-                document.getElementById('res-accuracy').innerText = accuracy + "%";
-                document.getElementById('res-misses').innerText = misses;
-                document.getElementById('final-rank').innerText = rank;
-                document.getElementById('results-screen').classList.remove('hidden');
-            }
-        }
-
-        function showLeaderboard() {
-            const leaderboardContent = document.getElementById('leaderboard-content');
-            leaderboardContent.innerHTML = '';
-            
-            const sortedPlayers = Array.from(players.values()).sort((a, b) => b.score - a.score);
-            
-            sortedPlayers.forEach((player, index) => {
-                const row = document.createElement('div');
-                row.className = 'leaderboard-row';
-                
-                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'rank-other';
-                
-                row.innerHTML = `
-                    <div class="flex items-center flex-1">
-                        <div class="rank-medal ${rankClass}">${index + 1}</div>
-                        <div>
-                            <div class="font-bold text-lg" style="color: ${player.color}">${player.username}</div>
-                            <div class="text-sm text-slate-400">Accuracy: ${player.accuracy}%</div>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-3xl font-black" style="color: ${player.color}">${player.score}</div>
-                        <div class="text-xs text-slate-400">Max Combo: ${player.combo}</div>
-                    </div>
-                `;
-                
-                leaderboardContent.appendChild(row);
-            });
-            
-            document.getElementById('leaderboard-screen').classList.remove('hidden');
+            document.getElementById('res-score').innerText = score;
+            document.getElementById('res-accuracy').innerText = accuracy + "%";
+            document.getElementById('res-misses').innerText = misses;
+            document.getElementById('final-rank').innerText = rank;
+            document.getElementById('results-screen').classList.remove('hidden');
         }
 
         function drawBackground(vol) {
             bgPulse = bgPulse * 0.9 + vol * 0.1;
             
-            // Dynamic gradient that shifts with music
             const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width);
             const hue = (Date.now() * 0.02) % 360;
             grad.addColorStop(0, `rgba(15, 23, 42, 1)`);
@@ -1322,21 +1323,18 @@
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Pulsing center circle
             ctx.strokeStyle = `rgba(34, 211, 238, ${vol * 0.3})`;
             ctx.lineWidth = vol * 20;
             ctx.beginPath();
             ctx.arc(canvas.width/2, canvas.height/2, 200 + vol * 400, 0, Math.PI * 2);
             ctx.stroke();
             
-            // Secondary pulse ring
             ctx.strokeStyle = `rgba(244, 114, 182, ${vol * 0.2})`;
             ctx.lineWidth = vol * 15;
             ctx.beginPath();
             ctx.arc(canvas.width/2, canvas.height/2, 300 + vol * 350, 0, Math.PI * 2);
             ctx.stroke();
 
-            // Animated grid
             ctx.strokeStyle = `rgba(255, 255, 255, ${0.03 + vol * 0.05})`;
             ctx.lineWidth = 1;
             const gridSize = 100 + vol * 50;
@@ -1349,13 +1347,11 @@
                 ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
             }
             
-            // Rotating geometric shapes
             ctx.save();
             ctx.translate(canvas.width/2, canvas.height/2);
             const rotation = Date.now() * 0.0005;
             ctx.rotate(rotation);
             
-            // Hexagon pattern
             for(let i = 0; i < 6; i++) {
                 const angle = (Math.PI * 2 / 6) * i;
                 const dist = 150 + vol * 100;
@@ -1371,7 +1367,6 @@
             
             ctx.restore();
             
-            // Floating particles in background
             const time = Date.now() * 0.001;
             for(let i = 0; i < 20; i++) {
                 const x = (canvas.width * (i / 20) + Math.sin(time + i) * 100) % canvas.width;
@@ -1386,111 +1381,6 @@
             }
         }
 
-        function estimateBPM() {
-            // Simple BPM estimation from buffer analysis
-            // This is a rough estimate based on song duration and expected beat patterns
-            const duration = buffer.duration;
-            
-            // Typical BPM ranges: 60-200
-            // Estimate based on difficulty and duration
-            let estimatedBPM = 120; // Default
-            
-            if (difficulty === 'easy') estimatedBPM = 90 + Math.floor(Math.random() * 30);
-            else if (difficulty === 'normal') estimatedBPM = 110 + Math.floor(Math.random() * 40);
-            else if (difficulty === 'hard') estimatedBPM = 130 + Math.floor(Math.random() * 50);
-            else if (difficulty === 'insane') estimatedBPM = 150 + Math.floor(Math.random() * 50);
-            
-            songMetadata.bpm = estimatedBPM;
-        }
-
-        function showReadyScreen() {
-            document.getElementById('menu').classList.add('hidden');
-            
-            // Populate ready screen
-            document.getElementById('ready-song-title').textContent = songMetadata.title;
-            document.getElementById('ready-song-artist').textContent = songMetadata.artist;
-            document.getElementById('ready-bpm').textContent = songMetadata.bpm;
-            document.getElementById('ready-duration').textContent = formatTime(songMetadata.duration);
-            
-            // Estimate note count based on difficulty and duration
-            let noteMultiplier = 1;
-            if (difficulty === 'easy') noteMultiplier = 0.5;
-            else if (difficulty === 'normal') noteMultiplier = 1;
-            else if (difficulty === 'hard') noteMultiplier = 1.5;
-            else if (difficulty === 'insane') noteMultiplier = 2.5;
-            
-            const estimatedNotes = Math.floor((songMetadata.duration / 60) * songMetadata.bpm * noteMultiplier * 0.5);
-            document.getElementById('ready-notes').textContent = '~' + estimatedNotes;
-            
-            // Show difficulty stars
-            const starsContainer = document.getElementById('ready-difficulty-stars');
-            starsContainer.innerHTML = '';
-            let starCount = 1;
-            if (difficulty === 'normal') starCount = 2;
-            else if (difficulty === 'hard') starCount = 3;
-            else if (difficulty === 'insane') starCount = 5;
-            
-            for (let i = 0; i < 5; i++) {
-                const star = document.createElement('div');
-                star.className = 'text-3xl';
-                star.textContent = i < starCount ? '⭐' : '☆';
-                starsContainer.appendChild(star);
-            }
-            
-            document.getElementById('ready-screen').classList.remove('hidden');
-        }
-
-        function startGameFromReady() {
-            document.getElementById('ready-screen').classList.add('hidden');
-            startGame();
-        }
-
-        function startGame() {
-            document.getElementById('menu').classList.add('hidden');
-            progressBarContainer.style.display = 'block';
-            timerText.style.display = 'block';
-            
-            // Hide solo score in VS mode
-            if (gameMode === 'vs') {
-                document.getElementById('solo-score-display').style.display = 'none';
-            }
-            
-            source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(analyzer);
-            analyzer.connect(audioCtx.destination);
-            source.start(0);
-            isPlaying = true;
-
-            source.onended = () => {
-                if (!isDying && isPlaying) showResults();
-            };
-
-            gameLoop();
-        }
-
-        function drawPlayerTrails() {
-            if (gameMode !== 'vs') return;
-            
-            players.forEach(player => {
-                if (player.trail.length > 1) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = player.color + Math.floor(0.8 * gameSpeed * 255).toString(16).padStart(2, '0');
-                    ctx.lineWidth = 8;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.shadowBlur = 12 * gameSpeed;
-                    ctx.shadowColor = player.color;
-                    ctx.moveTo(player.trail[0].x, player.trail[0].y);
-                    for (let i = 1; i < player.trail.length; i++) {
-                        ctx.lineTo(player.trail[i].x, player.trail[i].y);
-                    }
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
-                }
-            });
-        }
-
         function gameLoop() {
             if (!isPlaying) return;
             const data = new Uint8Array(analyzer.frequencyBinCount);
@@ -1499,20 +1389,14 @@
             let vol = 0; 
             for(let i=0; i<40; i++) vol += data[i]; 
             vol /= (40 * 255);
-            
-            // Clamp volume to prevent extreme values
             vol = Math.min(vol, 1);
             
             let spike = Math.max(0, vol - prevVolume);
-            
-            // Filter out unrealistic spikes (likely audio glitches)
             if (spike > 0.5) spike = 0.5;
             
             spikeHistory.push(spike);
             if (spikeHistory.length > HISTORY_SIZE) spikeHistory.shift();
             let avgSpike = spikeHistory.reduce((a, b) => a + b, 0) / spikeHistory.length;
-            
-            // Smooth out avgSpike to prevent jitter
             if (avgSpike < 0.001) avgSpike = 0.001;
             
             const now = audioCtx.currentTime;
@@ -1538,7 +1422,6 @@
             }
 
             if (!isDying && spike > avgSpike * spawnThreshold && spike > 0.012 && now - lastBeatTime > spawnCooldown) {
-                // Maximum spawn rate protection (no more than 20 fruits per second on insane)
                 const maxSpawnRate = difficulty === 'insane' ? 0.05 : 0.08;
                 if (now - lastBeatTime < maxSpawnRate) {
                     prevVolume = vol;
@@ -1546,7 +1429,6 @@
                     return;
                 }
                 
-                // Beat zoom effect (like FNF)
                 const beatZoom = 1.03 + (spike * 0.05);
                 canvas.style.transform = `scale(${beatZoom})`;
                 setTimeout(() => {
@@ -1561,8 +1443,7 @@
                     let hasPowerup = false;
                     let powerupType = null;
                     
-                    // Only spawn powerups in solo mode
-                    if (gameMode === 'solo' && !bomb && Math.random() < 0.1) {
+                    if (!bomb && Math.random() < 0.1) {
                         hasPowerup = true;
                         powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
                     }
@@ -1585,21 +1466,12 @@
                 ctx.fillRect(i * bw, canvas.height, bw - 2, -h);
             }
             
-            // Draw player trails (VS mode)
-            if (gameMode === 'vs') {
-                drawPlayerTrails();
-            }
-            
-            // Draw local player trail
             if (mouseTrail.length > 1) {
-                const currentPlayer = players.get(currentUserId);
-                const trailColor = currentPlayer ? currentPlayer.color : '#ffffff';
-                
                 ctx.beginPath(); 
-                ctx.strokeStyle = trailColor + Math.floor(0.8 * gameSpeed * 255).toString(16).padStart(2, '0');
+                ctx.strokeStyle = `rgba(255,255,255,${0.8 * gameSpeed})`; 
                 ctx.lineWidth = 10;
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                ctx.shadowBlur = 15 * gameSpeed; ctx.shadowColor = trailColor;
+                ctx.shadowBlur = 15 * gameSpeed; ctx.shadowColor = '#00f2ff';
                 ctx.moveTo(mouseTrail[0].x, mouseTrail[0].y);
                 for(let i=1; i < mouseTrail.length; i++) ctx.lineTo(mouseTrail[i].x, mouseTrail[i].y);
                 ctx.stroke(); ctx.shadowBlur = 0;
@@ -1626,19 +1498,9 @@
                         comboEl.style.fontSize = '70px';
                         misses++;
                         
-                        const currentPlayer = players.get(currentUserId);
-                        if (currentPlayer) {
-                            currentPlayer.combo = 0;
-                        }
-                        
                         if (difficulty !== 'easy') {
                             lives--; updateLivesUI(); missIndicators.push(new MissIndicator(f.x));
                             playSound(150, 'sawtooth', 0.3, 0.08);
-                            
-                            if (currentPlayer) {
-                                currentPlayer.lives--;
-                            }
-                            
                             if (lives <= 0) triggerDeath();
                         }
                     }
@@ -1651,6 +1513,7 @@
             
             if (mouseTrail.length > 12) mouseTrail.shift();
             if (!isMouseDown && mouseTrail.length > 0) mouseTrail.shift();
+            
             requestAnimationFrame(gameLoop);
         }
 
@@ -1659,42 +1522,15 @@
             const cx = (e.touches && e.touches.length) ? e.touches[0].clientX : e.clientX;
             const cy = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
             mouseX = cx - rect.left; mouseY = cy - rect.top;
-            if (isMouseDown) {
-                mouseTrail.push({x: mouseX, y: mouseY});
-                
-                // Update player trail
-                const currentPlayer = players.get(currentUserId);
-                if (currentPlayer) {
-                    currentPlayer.mouseX = mouseX;
-                    currentPlayer.mouseY = mouseY;
-                    currentPlayer.trail.push({x: mouseX, y: mouseY});
-                    if (currentPlayer.trail.length > 12) currentPlayer.trail.shift();
-                }
-            }
+            if (isMouseDown) mouseTrail.push({x: mouseX, y: mouseY});
         }
         
         window.addEventListener('mousedown', () => isMouseDown = true);
-        window.addEventListener('mouseup', () => {
-            isMouseDown = false;
-            const currentPlayer = players.get(currentUserId);
-            if (currentPlayer && currentPlayer.trail.length > 0) {
-                currentPlayer.trail.shift();
-            }
-        });
+        window.addEventListener('mouseup', () => isMouseDown = false);
         window.addEventListener('mousemove', updateMouse);
         window.addEventListener('touchstart', (e) => { isMouseDown = true; updateMouse(e); });
-        window.addEventListener('touchend', () => {
-            isMouseDown = false;
-            const currentPlayer = players.get(currentUserId);
-            if (currentPlayer && currentPlayer.trail.length > 0) {
-                currentPlayer.trail.shift();
-            }
-        });
+        window.addEventListener('touchend', () => isMouseDown = false);
         window.addEventListener('touchmove', (e) => { e.preventDefault(); updateMouse(e); }, {passive: false});
-
-        // Initialize
-        initDiscord();
-        initLibrary();
     </script>
 </body>
 </html>
