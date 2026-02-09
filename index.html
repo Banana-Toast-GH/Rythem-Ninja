@@ -50,6 +50,55 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
         
+        .powerup-display {
+            position: fixed;
+            top: 140px;
+            left: 32px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 2px solid;
+            min-width: 180px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+        
+        .powerup-display.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .powerup-icon {
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        
+        .powerup-name {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        
+        .powerup-timer-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .powerup-timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22d3ee);
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+        
         .top-ui {
             display: flex;
             justify-content: space-between;
@@ -114,7 +163,66 @@
             bottom: 32px;
             left: 32px;
             display: flex;
-            gap: 12px;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .life-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff0055, #ff6b00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .life-icon.lost {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border-color: #334155;
+            box-shadow: none;
+            transform: scale(0.8);
+            opacity: 0.3;
+        }
+        
+        /* Rainbow Slice Effects */
+        .slice-bar-left, .slice-bar-right {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 0;
+            background: linear-gradient(180deg, 
+                #ff0055 0%, 
+                #ff6b00 16.66%, 
+                #ffeb3b 33.33%, 
+                #4ade80 50%, 
+                #22d3ee 66.66%, 
+                #818cf8 83.33%, 
+                #f472b6 100%
+            );
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            transition: height 0.15s ease-out, opacity 0.3s ease-out;
+            opacity: 0;
+            z-index: 5;
+        }
+        
+        .slice-bar-left {
+            left: 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .slice-bar-right {
+            right: 0;
+            border-radius: 8px 0 0 8px;
+        }
+        
+        .slice-bar-active {
+            opacity: 1;
         }
         
         #progress-bar-container {
@@ -198,6 +306,7 @@
             justify-content: center;
             background: #0f172a;
             padding: 16px;
+            pointer-events: auto;
         }
         
         .menu-container {
@@ -265,6 +374,7 @@
             margin-bottom: 24px;
             position: relative;
             z-index: 1;
+            pointer-events: auto;
         }
         
         .menu-title {
@@ -509,6 +619,15 @@
                 <div class="accuracy-value" id="accuracy">100%</div>
             </div>
         </div>
+        
+        <!-- Powerup Display -->
+        <div id="powerup-display" class="powerup-display">
+            <div class="powerup-icon" id="powerup-icon">✨</div>
+            <div class="powerup-name" id="powerup-name">Power-Up</div>
+            <div class="powerup-timer-bar">
+                <div class="powerup-timer-fill" id="powerup-timer-fill"></div>
+            </div>
+        </div>
 
         <div id="progress-bar-container">
             <div id="progress-bar-fill"></div>
@@ -516,47 +635,86 @@
         <div id="timer-text">0:00 / 0:00</div>
 
         <div id="lives-container">
-            <span class="life-x" id="x-1">X</span>
-            <span class="life-x" id="x-2">X</span>
-            <span class="life-x" id="x-3">X</span>
+            <div class="life-icon" id="life-1">❤️</div>
+            <div class="life-icon" id="life-2">❤️</div>
+            <div class="life-icon" id="life-3">❤️</div>
         </div>
     </div>
+    
+    <!-- Rainbow Slice Effect Bars -->
+    <div class="slice-bar-left" id="slice-bar-left"></div>
+    <div class="slice-bar-right" id="slice-bar-right"></div>
 
     <!-- Menu -->
     <div id="menu" class="menu-screen">
-        <div class="menu-container">
+        <div class="menu-container" style="max-width: 36rem;">
             <div class="menu-glow-1"></div>
             <div class="menu-glow-2"></div>
             
-            <h1>RHYTHM NINJA</h1>
-            <p class="tagline">"Feel the Beat, Slice the Heat"</p>
+            <!-- Game Title -->
+            <div style="margin-bottom: 48px;">
+                <h1 style="font-size: 64px; margin-bottom: 4px;">RHYTHM NINJA</h1>
+                <p class="tagline" style="font-size: 16px; letter-spacing: 4px; text-transform: uppercase;">"Feel the Beat, Slice the Heat"</p>
+                <div style="width: 60%; height: 3px; background: linear-gradient(90deg, transparent, #22d3ee, transparent); margin: 16px auto;"></div>
+            </div>
             
             <div id="step-difficulty" class="menu-section">
-                <p class="menu-title">Choose Difficulty</p>
+                <p class="menu-title" style="font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 24px;">⚡ Select Difficulty ⚡</p>
                 <div class="button-grid">
-                    <button onclick="setDifficulty('easy', this)" class="btn btn-easy">EASY</button>
-                    <button onclick="setDifficulty('normal', this)" class="btn btn-normal">NORMAL</button>
-                    <button onclick="setDifficulty('hard', this)" class="btn btn-hard">HARD</button>
-                    <button onclick="setDifficulty('insane', this)" class="btn btn-insane">INSANE</button>
+                    <button id="btn-easy" class="btn btn-easy" style="padding: 20px; font-size: 16px;">
+                        <div>⭐ EASY</div>
+                        <div style="font-size: 10px; opacity: 0.7; margin-top: 4px;">Chill Vibes</div>
+                    </button>
+                    <button id="btn-normal" class="btn btn-normal" style="padding: 20px; font-size: 16px;">
+                        <div>⭐⭐ NORMAL</div>
+                        <div style="font-size: 10px; opacity: 0.7; margin-top: 4px;">Feel the Rhythm</div>
+                    </button>
+                    <button id="btn-hard" class="btn btn-hard" style="padding: 20px; font-size: 16px;">
+                        <div>⭐⭐⭐ HARD</div>
+                        <div style="font-size: 10px; opacity: 0.7; margin-top: 4px;">Pro Moves</div>
+                    </button>
+                    <button id="btn-insane" class="btn btn-insane" style="padding: 20px; font-size: 16px;">
+                        <div>⭐⭐⭐⭐⭐ INSANE</div>
+                        <div style="font-size: 10px; opacity: 0.7; margin-top: 4px;">Ninja Master</div>
+                    </button>
                 </div>
+                
+                <!-- Bot Play Toggle -->
+                <div style="margin-top: 24px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto;">
+                        <input type="checkbox" id="bot-toggle" style="width: 20px; height: 20px; margin-right: 12px; cursor: pointer;">
+                        <span style="font-size: 14px; font-weight: bold;">🤖 AUTO-PLAY (Bot Mode)</span>
+                    </label>
+                    <p style="font-size: 11px; color: #64748b; margin-top: 8px;">Watch the AI play perfectly!</p>
+                </div>
+                
+                <button id="continue-btn" class="btn-primary" style="margin-top: 24px; background: linear-gradient(135deg, #22d3ee, #818cf8); box-shadow: 0 0 30px rgba(34, 211, 238, 0.5);">
+                    CONTINUE →
+                </button>
             </div>
 
             <div id="step-song" class="hidden menu-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <p class="menu-title" style="margin: 0;">Upload Your Track</p>
-                    <span onclick="backToDifficulty()" class="back-btn">Back</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <p class="menu-title" style="font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin: 0;">🎵 Select Track 🎵</p>
+                    <span id="back-btn" class="back-btn">← Back</span>
                 </div>
                 
-                <label class="upload-area">
-                    <span class="upload-title">UPLOAD CUSTOM TRACK</span>
-                    <span class="upload-subtitle">Supports .mp3, .wav, .m4a</span>
-                    <input type="file" id="audioUpload" accept="audio/*" style="display: none;" onchange="handleFileUpload(event)">
+                <label class="upload-area" style="padding: 32px; border-width: 3px;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">🎧</div>
+                    <span class="upload-title" style="font-size: 18px;">UPLOAD YOUR TRACK</span>
+                    <span class="upload-subtitle" style="font-size: 12px; margin-top: 8px;">Drop your beat • MP3, WAV, M4A</span>
+                    <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
                 </label>
 
                 <div id="loading-spinner" class="hidden">
                     <div class="spinner"></div>
-                    <p style="font-size: 12px; color: #64748b;">Preparing Stage...</p>
+                    <p style="font-size: 14px; color: #22d3ee; font-weight: bold;">Analyzing Beat Pattern...</p>
                 </div>
+            </div>
+            
+            <!-- Credits -->
+            <div style="position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">
+                <p>Created with ❤️ by You • Powered by Web Audio API</p>
             </div>
         </div>
     </div>
@@ -584,7 +742,7 @@
                 </div>
             </div>
 
-            <button onclick="startGameFromReady()" class="btn-primary">LET'S GO!</button>
+            <button id="start-game-btn" class="btn-primary">LET'S GO!</button>
         </div>
     </div>
 
@@ -602,7 +760,7 @@
                     <div class="result-value" id="fail-accuracy" style="color: #f472b6;">0%</div>
                 </div>
             </div>
-            <button onclick="location.reload()" class="btn-primary">TRY AGAIN</button>
+            <button id="retry-btn-1" class="btn-primary">TRY AGAIN</button>
         </div>
     </div>
 
@@ -625,7 +783,7 @@
                     <div class="result-value" id="res-misses" style="color: #fb923c;">0</div>
                 </div>
             </div>
-            <button onclick="location.reload()" class="btn-primary">PLAY AGAIN</button>
+            <button id="retry-btn-2" class="btn-primary">PLAY AGAIN</button>
         </div>
     </div>
 
@@ -645,6 +803,7 @@
         const albumArt = document.getElementById('album-art');
 
         let difficulty = 'normal';
+        let botPlay = false; // Bot play mode
         let audioCtx, analyzer, source, buffer;
         let isPlaying = false, isMouseDown = false, mouseX = 0, mouseY = 0;
         let fruits = [], particles = [], fruitHalves = [], mouseTrail = [], missIndicators = [];
@@ -652,6 +811,7 @@
         let prevVolume = 0, spikeHistory = [], lastBeatTime = 0;
         let totalAccuracyPoints = 0, totalSpawns = 0;
         let bgPulse = 0, gameSpeed = 1, isDying = false;
+        let botTarget = null; // Current fruit bot is targeting
         
         let songMetadata = {
             title: 'Unknown Track',
@@ -683,11 +843,17 @@
 
         let activePowerup = null;
         let powerupEndTime = 0;
+        let comboDecayTimer = null; // Timer for combo decay
+        let comboLastHit = 0; // Timestamp of last combo hit
 
         function setDifficulty(diff, btn) {
             difficulty = diff;
             document.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
+        }
+        
+        function continueToSongSelect() {
+            botPlay = document.getElementById('bot-toggle').checked;
             document.getElementById('step-difficulty').classList.add('hidden');
             document.getElementById('step-song').classList.remove('hidden');
         }
@@ -847,6 +1013,11 @@
             progressBarContainer.style.display = 'block';
             timerText.style.display = 'block';
             
+            // Hide cursor in bot mode
+            if (botPlay) {
+                document.body.style.cursor = 'none';
+            }
+            
             source = audioCtx.createBufferSource();
             source.buffer = buffer;
             source.connect(analyzer);
@@ -873,13 +1044,13 @@
                 
                 this.x = Math.random() * (canvas.width - 200) + 100;
                 this.y = canvas.height + 50;
-                this.vx = (Math.random() - 0.5) * 8;
-                this.vy = -(18 + Math.random() * 10);
+                this.vx = (Math.random() - 0.5) * 5; // Reduced from 8
+                this.vy = -(12 + Math.random() * 6); // Reduced from 18+10
                 this.rotation = Math.random() * Math.PI * 2;
-                this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.15; // Slightly slower rotation
                 this.radius = isBomb ? 35 : (hasPowerup ? 40 : 30);
                 this.sliced = false;
-                this.gravity = 0.5;
+                this.gravity = 0.4; // Reduced from 0.5
             }
 
             update() {
@@ -1149,6 +1320,14 @@
                 combo = 0;
                 comboEl.innerText = "0";
                 comboEl.style.fontSize = '70px';
+                comboEl.style.transition = 'none';
+                
+                // Clear combo decay timer
+                if (comboDecayTimer) {
+                    clearInterval(comboDecayTimer);
+                    comboDecayTimer = null;
+                }
+                
                 lives--;
                 updateLivesUI();
                 
@@ -1172,6 +1351,7 @@
             }
 
             triggerScreenShake();
+            triggerSliceEffect(); // Rainbow bars!
             
             const dx = mouseX - fruit.x;
             const dy = mouseY - fruit.y;
@@ -1216,10 +1396,42 @@
             scoreEl.innerText = score.toString().padStart(4, '0');
             comboEl.innerText = combo;
             comboEl.style.color = combo > 10 ? '#ffeb3b' : 'rgba(255,255,255,0.2)';
+            
+            // Combo growth system - grows over time, resets on hit
+            comboLastHit = Date.now();
+            
+            // Clear any existing decay timer
+            if (comboDecayTimer) {
+                clearTimeout(comboDecayTimer);
+                comboDecayTimer = null;
+            }
+            
+            // Snap to larger size immediately on hit
             const newSize = Math.min(70 + combo * 2, 150);
             comboEl.style.fontSize = newSize + 'px';
+            comboEl.style.transition = 'none'; // Instant snap
             comboEl.classList.add('combo-pop');
             setTimeout(() => comboEl.classList.remove('combo-pop'), 150);
+            
+            // Start 10-second growth timer
+            let growthInterval = setInterval(() => {
+                const timeSinceHit = (Date.now() - comboLastHit) / 1000;
+                if (timeSinceHit < 10) {
+                    // Grow gradually over 10 seconds
+                    const growthFactor = 1 + (timeSinceHit / 10) * 0.5; // Up to 1.5x size
+                    const grownSize = newSize * growthFactor;
+                    comboEl.style.transition = 'font-size 0.1s ease-out';
+                    comboEl.style.fontSize = Math.min(grownSize, 200) + 'px';
+                } else {
+                    // After 10 seconds, smoothly shrink back
+                    clearInterval(growthInterval);
+                    comboEl.style.transition = 'font-size 2s ease-in-out';
+                    comboEl.style.fontSize = newSize + 'px';
+                }
+            }, 100);
+            
+            // Clear interval when combo breaks
+            comboDecayTimer = growthInterval;
             
             showJudgement(judgement, color);
             playSound(440 + combo * 10, 'sine', 0.15, 0.08);
@@ -1231,6 +1443,16 @@
         function activatePowerup(type) {
             activePowerup = type;
             powerupEndTime = audioCtx.currentTime + 5;
+
+            // Show powerup display
+            const display = document.getElementById('powerup-display');
+            const icon = document.getElementById('powerup-icon');
+            const name = document.getElementById('powerup-name');
+            
+            icon.textContent = type.emoji;
+            name.textContent = type.effect;
+            display.style.borderColor = type.color;
+            display.classList.add('active');
 
             if (type.name === 'slow') {
                 gameSpeed = 0.5;
@@ -1245,7 +1467,17 @@
                 if (activePowerup.name === 'slow') {
                     gameSpeed = 1;
                 }
+                
+                // Hide powerup display
+                document.getElementById('powerup-display').classList.remove('active');
                 activePowerup = null;
+            }
+            
+            // Update powerup timer bar
+            if (activePowerup) {
+                const timeLeft = powerupEndTime - audioCtx.currentTime;
+                const percentage = (timeLeft / 5) * 100;
+                document.getElementById('powerup-timer-fill').style.width = Math.max(0, percentage) + '%';
             }
         }
 
@@ -1258,10 +1490,30 @@
 
         function updateLivesUI() {
             for (let i = 1; i <= 3; i++) {
-                const el = document.getElementById('x-' + i);
-                if (i > lives) el.classList.add('active');
-                else el.classList.remove('active');
+                const el = document.getElementById('life-' + i);
+                if (i > lives) el.classList.add('lost');
+                else el.classList.remove('lost');
             }
+        }
+        
+        function triggerSliceEffect() {
+            const leftBar = document.getElementById('slice-bar-left');
+            const rightBar = document.getElementById('slice-bar-right');
+            
+            // Random height between 100-300px
+            const height = 100 + Math.random() * 200;
+            
+            leftBar.style.height = height + 'px';
+            rightBar.style.height = height + 'px';
+            leftBar.classList.add('slice-bar-active');
+            rightBar.classList.add('slice-bar-active');
+            
+            setTimeout(() => {
+                leftBar.style.height = '0';
+                rightBar.style.height = '0';
+                leftBar.classList.remove('slice-bar-active');
+                rightBar.classList.remove('slice-bar-active');
+            }, 150);
         }
 
         function playSound(freq, type = 'sine', vol = 0.1, dur = 0.1) {
@@ -1501,6 +1753,14 @@
                     if (!f.sliced && !f.isBomb && !f.hasPowerup && f.y > canvas.height) {
                         combo = 0; comboEl.innerText = "0";
                         comboEl.style.fontSize = '70px';
+                        comboEl.style.transition = 'none';
+                        
+                        // Clear combo decay timer
+                        if (comboDecayTimer) {
+                            clearInterval(comboDecayTimer);
+                            comboDecayTimer = null;
+                        }
+                        
                         misses++;
                         
                         if (difficulty !== 'easy') {
@@ -1512,7 +1772,54 @@
                     fruits.splice(i, 1);
                 } else {
                     f.draw(); 
-                    if (isMouseDown && Math.hypot(mouseX - f.x, mouseY - f.y) < f.radius + 30) sliceFruit(f);
+                    
+                    // Bot Play AI
+                    if (botPlay) {
+                        // Find best target (prioritize fruits near peak height)
+                        if (!botTarget || botTarget.sliced || !fruits.includes(botTarget)) {
+                            // Find fruit closest to center height
+                            let bestFruit = null;
+                            let bestScore = Infinity;
+                            
+                            fruits.forEach(fruit => {
+                                if (!fruit.isBomb && !fruit.sliced) {
+                                    const distToCenter = Math.abs(fruit.y - canvas.height / 2);
+                                    if (distToCenter < bestScore) {
+                                        bestScore = distToCenter;
+                                        bestFruit = fruit;
+                                    }
+                                }
+                            });
+                            
+                            botTarget = bestFruit;
+                        }
+                        
+                        // Move toward target
+                        if (botTarget && botTarget === f && !f.isBomb) {
+                            const dx = f.x - mouseX;
+                            const dy = f.y - mouseY;
+                            const dist = Math.hypot(dx, dy);
+                            
+                            if (dist > 5) {
+                                // Smoothly move toward target
+                                mouseX += (dx / dist) * 25; // Fast but smooth
+                                mouseY += (dy / dist) * 25;
+                                isMouseDown = true;
+                                mouseTrail.push({x: mouseX, y: mouseY});
+                            }
+                            
+                            // Slice when close
+                            if (dist < f.radius + 30) {
+                                sliceFruit(f);
+                                botTarget = null;
+                            }
+                        }
+                    }
+                    
+                    // Manual play
+                    if (!botPlay && isMouseDown && Math.hypot(mouseX - f.x, mouseY - f.y) < f.radius + 30) {
+                        sliceFruit(f);
+                    }
                 }
             }
             
@@ -1536,6 +1843,27 @@
         window.addEventListener('touchstart', (e) => { isMouseDown = true; updateMouse(e); });
         window.addEventListener('touchend', () => isMouseDown = false);
         window.addEventListener('touchmove', (e) => { e.preventDefault(); updateMouse(e); }, {passive: false});
+
+        // Add event listeners for buttons (no inline onclick due to CSP)
+        document.getElementById('btn-easy').addEventListener('click', function() {
+            setDifficulty('easy', this);
+        });
+        document.getElementById('btn-normal').addEventListener('click', function() {
+            setDifficulty('normal', this);
+        });
+        document.getElementById('btn-hard').addEventListener('click', function() {
+            setDifficulty('hard', this);
+        });
+        document.getElementById('btn-insane').addEventListener('click', function() {
+            setDifficulty('insane', this);
+        });
+        
+        document.getElementById('continue-btn').addEventListener('click', continueToSongSelect);
+        document.getElementById('back-btn').addEventListener('click', backToDifficulty);
+        document.getElementById('audioUpload').addEventListener('change', handleFileUpload);
+        document.getElementById('start-game-btn').addEventListener('click', startGameFromReady);
+        document.getElementById('retry-btn-1').addEventListener('click', () => location.reload());
+        document.getElementById('retry-btn-2').addEventListener('click', () => location.reload());
     </script>
 </body>
 </html>
