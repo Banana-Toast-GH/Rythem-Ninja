@@ -12,6 +12,8 @@
             height: 100%;
             overflow: hidden;
             position: fixed;
+            margin: 0;
+            padding: 0;
         }
         
         body {
@@ -20,7 +22,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             user-select: none;
             touch-action: none;
-            transform-origin: top left;
         }
         
         canvas { display: block; }
@@ -301,6 +302,12 @@
             0% { transform: scale(1); }
             50% { transform: scale(1.15); }
             100% { transform: scale(1); }
+        }
+        
+        @keyframes frenzy-pulse {
+            0% { opacity: 0; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.05); }
         }
         
         /* Menu Styles */
@@ -817,13 +824,26 @@
                 const scaleY = height / minHeight;
                 const scale = Math.min(scaleX, scaleY, 1);
                 
+                // Center the scaled content
+                const scaledWidth = minWidth * scale;
+                const scaledHeight = minHeight * scale;
+                const offsetX = (width - scaledWidth) / 2;
+                const offsetY = (height - scaledHeight) / 2;
+                
                 document.body.style.transform = `scale(${scale})`;
-                document.body.style.width = (width / scale) + 'px';
-                document.body.style.height = (height / scale) + 'px';
+                document.body.style.transformOrigin = 'top left';
+                document.body.style.width = minWidth + 'px';
+                document.body.style.height = minHeight + 'px';
+                document.body.style.position = 'absolute';
+                document.body.style.left = offsetX + 'px';
+                document.body.style.top = offsetY + 'px';
             } else {
                 document.body.style.transform = 'scale(1)';
                 document.body.style.width = '100%';
                 document.body.style.height = '100%';
+                document.body.style.position = 'fixed';
+                document.body.style.left = '0';
+                document.body.style.top = '0';
             }
         }
         
@@ -873,9 +893,10 @@
         ];
 
         const POWERUP_TYPES = [
-            { name: 'double', color: '#ffd700', emoji: '✨', effect: 'Double Points!', weight: 40 },      // 40% - Most common
-            { name: 'slow', color: '#00bcd4', emoji: '⏱️', effect: 'Slow Motion!', weight: 30 },         // 30% - Common
-            { name: 'shield', color: '#4caf50', emoji: '🛡️', effect: 'Shield Active!', weight: 20 },     // 20% - Uncommon
+            { name: 'double', color: '#ffd700', emoji: '✨', effect: 'Double Points!', weight: 35 },      // 35% - Common
+            { name: 'slow', color: '#00bcd4', emoji: '⏱️', effect: 'Slow Motion!', weight: 25 },         // 25% - Common
+            { name: 'frenzy', color: '#ff1744', emoji: '🍇', effect: 'Fruit Frenzy!', weight: 15 },      // 15% - Less common than shield
+            { name: 'shield', color: '#4caf50', emoji: '🛡️', effect: 'Shield Active!', weight: 15 },     // 15% - Less common
             { name: 'bomb', color: '#ff6b00', emoji: '💣', effect: 'Screen Clear!', weight: 10 }          // 10% - Rare
         ];
         
@@ -1089,10 +1110,11 @@
         }
 
         class Fruit {
-            constructor(isBomb = false, hasPowerup = false, powerupType = null) {
+            constructor(isBomb = false, hasPowerup = false, powerupType = null, isFrenzy = false) {
                 this.isBomb = isBomb;
                 this.hasPowerup = hasPowerup;
                 this.powerupType = powerupType;
+                this.isFrenzy = isFrenzy; // Frenzy fruit flag
                 
                 if (!isBomb && !hasPowerup) {
                     this.fruitType = FRUIT_TYPES[Math.floor(Math.random() * FRUIT_TYPES.length)];
@@ -1112,7 +1134,11 @@
                 this.vy = -(16 + Math.random() * 6) * (1 + (speedMultiplier - 1) * 0.3); // Higher launch, slight speed scaling
                 this.rotation = Math.random() * Math.PI * 2;
                 this.rotationSpeed = (Math.random() - 0.5) * 0.1 * speedMultiplier;
-                this.radius = isBomb ? 35 : (hasPowerup ? 40 : 30);
+                
+                // Frenzy fruits are 60% smaller
+                const sizeMultiplier = isFrenzy ? 0.6 : 1;
+                this.radius = (isBomb ? 35 : (hasPowerup ? 40 : 30)) * sizeMultiplier;
+                
                 this.sliced = false;
                 this.gravity = 0.35; // Lower gravity for higher arcs
             }
@@ -1400,9 +1426,16 @@
             if (fruit.hasPowerup) {
                 activatePowerup(fruit.powerupType);
                 playSound(800, 'sine', 0.3, 0.15);
-                for (let i = 0; i < 30; i++) {
+                for (let i = 0; i < 20; i++) { // Reduced from 30
                     particles.push(new Particle(fruit.x, fruit.y, fruit.powerupType.color));
                 }
+                
+                // Particle limit
+                const MAX_PARTICLES = 200;
+                if (particles.length > MAX_PARTICLES) {
+                    particles.splice(0, particles.length - MAX_PARTICLES);
+                }
+                
                 showJudgement(fruit.powerupType.effect, '#ffd700');
                 return;
             }
@@ -1422,6 +1455,12 @@
 
             for (let i = 0; i < 15; i++) {
                 particles.push(new Particle(fruit.x, fruit.y, fruit.fruitType.color));
+            }
+            
+            // Particle limit to prevent lag
+            const MAX_PARTICLES = 200;
+            if (particles.length > MAX_PARTICLES) {
+                particles.splice(0, particles.length - MAX_PARTICLES);
             }
 
             const timing = Math.abs(fruit.y - canvas.height / 2);
@@ -1504,6 +1543,59 @@
             } else if (type.name === 'bomb') {
                 // Screen clear - instantly slice all fruits on screen!
                 clearScreen();
+            } else if (type.name === 'frenzy') {
+                // Fruit Frenzy - spawn fruits rapidly for 5 seconds
+                startFruitFrenzy();
+            }
+        }
+        
+        let frenzyActive = false;
+        let frenzyInterval = null;
+        
+        function startFruitFrenzy() {
+            frenzyActive = true;
+            
+            // Spawn fruits rapidly every 0.15 seconds
+            frenzyInterval = setInterval(() => {
+                if (!isPlaying || isDying) {
+                    stopFruitFrenzy();
+                    return;
+                }
+                
+                // Spawn 2-3 fruits each time
+                const count = 2 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < count; i++) {
+                    // No bombs during frenzy, just pure fruit! Smaller and marked as frenzy
+                    fruits.push(new Fruit(false, false, null, true)); // isFrenzy = true
+                    totalSpawns++;
+                }
+                
+                // Visual effect - screen pulse
+                const pulseOverlay = document.createElement('div');
+                pulseOverlay.style.cssText = `
+                    position: fixed;
+                    inset: 0;
+                    background: radial-gradient(circle, rgba(255, 23, 68, 0.1), transparent);
+                    pointer-events: none;
+                    z-index: 1;
+                    animation: frenzy-pulse 0.15s ease-out;
+                `;
+                document.body.appendChild(pulseOverlay);
+                setTimeout(() => pulseOverlay.remove(), 150);
+                
+            }, 150); // Spawn every 150ms
+            
+            // Stop after 5 seconds
+            setTimeout(() => {
+                stopFruitFrenzy();
+            }, 5000);
+        }
+        
+        function stopFruitFrenzy() {
+            frenzyActive = false;
+            if (frenzyInterval) {
+                clearInterval(frenzyInterval);
+                frenzyInterval = null;
             }
         }
         
@@ -1527,7 +1619,7 @@
                     fruitHalves.push(new FruitHalf(fruit.x, fruit.y, Math.cos(angle - Math.PI/2) * speed, 
                                                   Math.sin(angle - Math.PI/2) * speed, false, fruit.fruitType));
 
-                    for (let i = 0; i < 10; i++) {
+                    for (let i = 0; i < 5; i++) { // Reduced from 10 for performance
                         particles.push(new Particle(fruit.x, fruit.y, fruit.fruitType.color));
                     }
                     
@@ -1540,6 +1632,12 @@
                     createFloatingScore(points, fruit.x, fruit.y, '#ff6b00');
                 }
             });
+            
+            // Particle limit to prevent lag
+            const MAX_PARTICLES = 200;
+            if (particles.length > MAX_PARTICLES) {
+                particles.splice(0, particles.length - MAX_PARTICLES);
+            }
             
             // Update UI
             if (clearedCount > 0) {
@@ -1665,7 +1763,8 @@
         }
 
         function endGame() {
-            isPlaying = false; 
+            isPlaying = false;
+            stopFruitFrenzy(); // Stop frenzy if active
             if (source) source.stop();
             document.getElementById('game-over').classList.remove('hidden');
             document.getElementById('fail-score').innerText = score;
@@ -1675,6 +1774,7 @@
         function showResults() {
             if (isDying) return;
             isPlaying = false;
+            stopFruitFrenzy(); // Stop frenzy if active
             const accuracy = totalSpawns > 0 ? Math.round(totalAccuracyPoints / totalSpawns) : 100;
             
             let rank = 'D';
@@ -1872,15 +1972,18 @@
                 const f = fruits[i];
                 if (!f.update() || f.sliced) {
                     if (!f.sliced && !f.isBomb && !f.hasPowerup && f.y > canvas.height) {
-                        combo = 0; 
-                        comboEl.innerText = "0";
-                        comboEl.style.fontSize = '70px';
-                        misses++;
-                        
-                        if (difficulty !== 'easy') {
-                            lives--; updateLivesUI(); missIndicators.push(new MissIndicator(f.x));
-                            playSound(150, 'sawtooth', 0.3, 0.08);
-                            if (lives <= 0) triggerDeath();
+                        // Frenzy fruits don't cause life loss when missed
+                        if (!f.isFrenzy) {
+                            combo = 0; 
+                            comboEl.innerText = "0";
+                            comboEl.style.fontSize = '70px';
+                            misses++;
+                            
+                            if (difficulty !== 'easy') {
+                                lives--; updateLivesUI(); missIndicators.push(new MissIndicator(f.x));
+                                playSound(150, 'sawtooth', 0.3, 0.08);
+                                if (lives <= 0) triggerDeath();
+                            }
                         }
                     }
                     fruits.splice(i, 1);
