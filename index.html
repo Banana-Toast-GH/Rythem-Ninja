@@ -2,18 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rhythm Ninja</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+        }
+        
         body {
             background-color: #020617;
             color: white;
-            overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             user-select: none;
             touch-action: none;
+            transform-origin: top left;
         }
         
         canvas { display: block; }
@@ -535,7 +542,13 @@
             pointer-events: auto;
         }
         
-        .btn-primary:hover {
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .btn-primary:not(:disabled):hover {
             background: #06b6d4;
             transform: scale(1.05);
             box-shadow: 0 8px 20px rgba(34, 211, 238, 0.5);
@@ -621,12 +634,8 @@
         </div>
         
         <!-- Powerup Display -->
-        <div id="powerup-display" class="powerup-display">
-            <div class="powerup-icon" id="powerup-icon">✨</div>
-            <div class="powerup-name" id="powerup-name">Power-Up</div>
-            <div class="powerup-timer-bar">
-                <div class="powerup-timer-fill" id="powerup-timer-fill"></div>
-            </div>
+        <div id="powerup-container" style="position: fixed; top: 140px; left: 32px; display: flex; flex-direction: column; gap: 8px; pointer-events: none;">
+            <!-- Powerup displays will be added here dynamically -->
         </div>
 
         <div id="progress-bar-container">
@@ -688,7 +697,7 @@
                     <p style="font-size: 11px; color: #64748b; margin-top: 8px;">Watch the AI play perfectly!</p>
                 </div>
                 
-                <button id="continue-btn" class="btn-primary" style="margin-top: 24px; background: linear-gradient(135deg, #22d3ee, #818cf8); box-shadow: 0 0 30px rgba(34, 211, 238, 0.5);">
+                <button id="continue-btn" class="btn-primary" style="margin-top: 24px; background: linear-gradient(135deg, #22d3ee, #818cf8); box-shadow: 0 0 30px rgba(34, 211, 238, 0.5); opacity: 0.5; cursor: not-allowed;" disabled>
                     CONTINUE →
                 </button>
             </div>
@@ -790,8 +799,36 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        
+        // Auto-scale to fit Discord iframe or any container
+        function resizeGame() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Scale down if iframe is too small
+            const minWidth = 800;
+            const minHeight = 600;
+            
+            if (width < minWidth || height < minHeight) {
+                const scaleX = width / minWidth;
+                const scaleY = height / minHeight;
+                const scale = Math.min(scaleX, scaleY, 1);
+                
+                document.body.style.transform = `scale(${scale})`;
+                document.body.style.width = (width / scale) + 'px';
+                document.body.style.height = (height / scale) + 'px';
+            } else {
+                document.body.style.transform = 'scale(1)';
+                document.body.style.width = '100%';
+                document.body.style.height = '100%';
+            }
+        }
+        
+        resizeGame();
+        window.addEventListener('resize', resizeGame);
 
         const scoreEl = document.getElementById('score');
         const comboEl = document.getElementById('combo');
@@ -836,13 +873,26 @@
         ];
 
         const POWERUP_TYPES = [
-            { name: 'double', color: '#ffd700', emoji: '✨', effect: 'Double Points!' },
-            { name: 'slow', color: '#00bcd4', emoji: '⏱️', effect: 'Slow Motion!' },
-            { name: 'shield', color: '#4caf50', emoji: '🛡️', effect: 'Shield Active!' }
+            { name: 'double', color: '#ffd700', emoji: '✨', effect: 'Double Points!', weight: 40 },      // 40% - Most common
+            { name: 'slow', color: '#00bcd4', emoji: '⏱️', effect: 'Slow Motion!', weight: 30 },         // 30% - Common
+            { name: 'shield', color: '#4caf50', emoji: '🛡️', effect: 'Shield Active!', weight: 20 },     // 20% - Uncommon
+            { name: 'bomb', color: '#ff6b00', emoji: '💣', effect: 'Screen Clear!', weight: 10 }          // 10% - Rare
         ];
+        
+        // Weighted random selection for powerups
+        function getRandomPowerup() {
+            const totalWeight = POWERUP_TYPES.reduce((sum, p) => sum + p.weight, 0);
+            let random = Math.random() * totalWeight;
+            
+            for (let powerup of POWERUP_TYPES) {
+                random -= powerup.weight;
+                if (random <= 0) return powerup;
+            }
+            
+            return POWERUP_TYPES[0]; // Fallback
+        }
 
-        let activePowerup = null;
-        let powerupEndTime = 0;
+        let activePowerups = []; // Array to hold multiple active powerups
         let comboDecayTimer = null; // Timer for combo decay
         let comboLastHit = 0; // Timestamp of last combo hit
 
@@ -850,6 +900,12 @@
             difficulty = diff;
             document.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
+            
+            // Enable continue button
+            const continueBtn = document.getElementById('continue-btn');
+            continueBtn.disabled = false;
+            continueBtn.style.opacity = '1';
+            continueBtn.style.cursor = 'pointer';
         }
         
         function continueToSongSelect() {
@@ -1044,13 +1100,21 @@
                 
                 this.x = Math.random() * (canvas.width - 200) + 100;
                 this.y = canvas.height + 50;
-                this.vx = (Math.random() - 0.5) * 5; // Reduced from 8
-                this.vy = -(12 + Math.random() * 6); // Reduced from 18+10
+                
+                // Difficulty-based speed
+                let speedMultiplier = 1;
+                if (difficulty === 'easy') speedMultiplier = 0.6;
+                else if (difficulty === 'normal') speedMultiplier = 1;
+                else if (difficulty === 'hard') speedMultiplier = 1.4;
+                else if (difficulty === 'insane') speedMultiplier = 1.8;
+                
+                this.vx = (Math.random() - 0.5) * 3 * speedMultiplier; // Slower horizontal
+                this.vy = -(16 + Math.random() * 6) * (1 + (speedMultiplier - 1) * 0.3); // Higher launch, slight speed scaling
                 this.rotation = Math.random() * Math.PI * 2;
-                this.rotationSpeed = (Math.random() - 0.5) * 0.15; // Slightly slower rotation
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1 * speedMultiplier;
                 this.radius = isBomb ? 35 : (hasPowerup ? 40 : 30);
                 this.sliced = false;
-                this.gravity = 0.4; // Reduced from 0.5
+                this.gravity = 0.35; // Lower gravity for higher arcs
             }
 
             update() {
@@ -1320,13 +1384,6 @@
                 combo = 0;
                 comboEl.innerText = "0";
                 comboEl.style.fontSize = '70px';
-                comboEl.style.transition = 'none';
-                
-                // Clear combo decay timer
-                if (comboDecayTimer) {
-                    clearInterval(comboDecayTimer);
-                    comboDecayTimer = null;
-                }
                 
                 lives--;
                 updateLivesUI();
@@ -1373,15 +1430,17 @@
             let judgement = 'PERFECT';
             let color = '#00ff88';
 
-            if (timing > 50 && timing < 150) {
-                judgement = 'GREAT'; points = 75; accuracyPts = 85; color = '#22d3ee';
-            } else if (timing >= 150 && timing < 250) {
-                judgement = 'GOOD'; points = 50; accuracyPts = 70; color = '#ffeb3b';
-            } else if (timing >= 250) {
-                judgement = 'OK'; points = 25; accuracyPts = 50; color = '#ff9500';
+            if (timing > 80 && timing < 200) {
+                judgement = 'GREAT'; points = 75; accuracyPts = 95; color = '#22d3ee';
+            } else if (timing >= 200 && timing < 350) {
+                judgement = 'GOOD'; points = 50; accuracyPts = 85; color = '#ffeb3b';
+            } else if (timing >= 350) {
+                judgement = 'OK'; points = 25; accuracyPts = 75; color = '#ff9500';
             }
 
-            if (activePowerup && activePowerup.name === 'double') {
+            // Check if double points powerup is active
+            const hasDoublePoints = activePowerups.some(p => p.type.name === 'double');
+            if (hasDoublePoints) {
                 points *= 2;
             }
 
@@ -1397,41 +1456,14 @@
             comboEl.innerText = combo;
             comboEl.style.color = combo > 10 ? '#ffeb3b' : 'rgba(255,255,255,0.2)';
             
-            // Combo growth system - grows over time, resets on hit
-            comboLastHit = Date.now();
-            
-            // Clear any existing decay timer
-            if (comboDecayTimer) {
-                clearTimeout(comboDecayTimer);
-                comboDecayTimer = null;
-            }
-            
-            // Snap to larger size immediately on hit
-            const newSize = Math.min(70 + combo * 2, 150);
+            // Simple combo growth - just gets bigger with each hit
+            const baseSize = 70;
+            const sizePerCombo = 1.5; // Smaller increment per combo
+            const newSize = Math.min(baseSize + combo * sizePerCombo, 120); // Max 120px
+            comboEl.style.transition = 'font-size 0.1s ease-out';
             comboEl.style.fontSize = newSize + 'px';
-            comboEl.style.transition = 'none'; // Instant snap
             comboEl.classList.add('combo-pop');
             setTimeout(() => comboEl.classList.remove('combo-pop'), 150);
-            
-            // Start 10-second growth timer
-            let growthInterval = setInterval(() => {
-                const timeSinceHit = (Date.now() - comboLastHit) / 1000;
-                if (timeSinceHit < 10) {
-                    // Grow gradually over 10 seconds
-                    const growthFactor = 1 + (timeSinceHit / 10) * 0.5; // Up to 1.5x size
-                    const grownSize = newSize * growthFactor;
-                    comboEl.style.transition = 'font-size 0.1s ease-out';
-                    comboEl.style.fontSize = Math.min(grownSize, 200) + 'px';
-                } else {
-                    // After 10 seconds, smoothly shrink back
-                    clearInterval(growthInterval);
-                    comboEl.style.transition = 'font-size 2s ease-in-out';
-                    comboEl.style.fontSize = newSize + 'px';
-                }
-            }, 100);
-            
-            // Clear interval when combo breaks
-            comboDecayTimer = growthInterval;
             
             showJudgement(judgement, color);
             playSound(440 + combo * 10, 'sine', 0.15, 0.08);
@@ -1441,43 +1473,132 @@
         }
 
         function activatePowerup(type) {
-            activePowerup = type;
-            powerupEndTime = audioCtx.currentTime + 5;
-
-            // Show powerup display
-            const display = document.getElementById('powerup-display');
-            const icon = document.getElementById('powerup-icon');
-            const name = document.getElementById('powerup-name');
+            const powerup = {
+                type: type,
+                endTime: audioCtx.currentTime + 5,
+                id: 'powerup-' + Date.now()
+            };
             
-            icon.textContent = type.emoji;
-            name.textContent = type.effect;
+            activePowerups.push(powerup);
+            
+            // Create powerup display element
+            const container = document.getElementById('powerup-container');
+            const display = document.createElement('div');
+            display.id = powerup.id;
+            display.className = 'powerup-display active';
             display.style.borderColor = type.color;
-            display.classList.add('active');
+            display.innerHTML = `
+                <div class="powerup-icon">${type.emoji}</div>
+                <div class="powerup-name">${type.effect}</div>
+                <div class="powerup-timer-bar">
+                    <div class="powerup-timer-fill" id="${powerup.id}-fill"></div>
+                </div>
+            `;
+            container.appendChild(display);
 
             if (type.name === 'slow') {
                 gameSpeed = 0.5;
             } else if (type.name === 'shield') {
                 lives = Math.min(lives + 1, 3);
                 updateLivesUI();
+            } else if (type.name === 'bomb') {
+                // Screen clear - instantly slice all fruits on screen!
+                clearScreen();
+            }
+        }
+        
+        function clearScreen() {
+            let clearedCount = 0;
+            
+            // Slice all non-bomb fruits
+            fruits.forEach(fruit => {
+                if (!fruit.isBomb && !fruit.hasPowerup && !fruit.sliced) {
+                    fruit.sliced = true;
+                    clearedCount++;
+                    
+                    // Visual effects
+                    const dx = Math.random() - 0.5;
+                    const dy = Math.random() - 0.5;
+                    const angle = Math.atan2(dy, dx);
+                    const speed = 8;
+
+                    fruitHalves.push(new FruitHalf(fruit.x, fruit.y, Math.cos(angle + Math.PI/2) * speed, 
+                                                  Math.sin(angle + Math.PI/2) * speed, false, fruit.fruitType));
+                    fruitHalves.push(new FruitHalf(fruit.x, fruit.y, Math.cos(angle - Math.PI/2) * speed, 
+                                                  Math.sin(angle - Math.PI/2) * speed, false, fruit.fruitType));
+
+                    for (let i = 0; i < 10; i++) {
+                        particles.push(new Particle(fruit.x, fruit.y, fruit.fruitType.color));
+                    }
+                    
+                    // Add to combo and score (but not accuracy)
+                    combo++;
+                    const comboMult = Math.min(combo, 50);
+                    const points = 50 + comboMult * 2; // Half points for screen clear
+                    score += points;
+                    
+                    createFloatingScore(points, fruit.x, fruit.y, '#ff6b00');
+                }
+            });
+            
+            // Update UI
+            if (clearedCount > 0) {
+                scoreEl.innerText = score.toString().padStart(4, '0');
+                comboEl.innerText = combo;
+                comboEl.style.color = combo > 10 ? '#ffeb3b' : 'rgba(255,255,255,0.2)';
+                
+                const baseSize = 70;
+                const sizePerCombo = 1.5;
+                const newSize = Math.min(baseSize + combo * sizePerCombo, 120);
+                comboEl.style.transition = 'font-size 0.1s ease-out';
+                comboEl.style.fontSize = newSize + 'px';
+                
+                // Screen flash effect
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 107, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+                
+                // Big explosion sound
+                playSound(80, 'sawtooth', 0.3, 0.5);
+                setTimeout(() => playSound(120, 'sawtooth', 0.2, 0.4), 100);
+                
+                showJudgement(`${clearedCount} CLEARED!`, '#ff6b00');
             }
         }
 
         function updatePowerups() {
-            if (activePowerup && audioCtx.currentTime >= powerupEndTime) {
-                if (activePowerup.name === 'slow') {
-                    gameSpeed = 1;
-                }
-                
-                // Hide powerup display
-                document.getElementById('powerup-display').classList.remove('active');
-                activePowerup = null;
-            }
+            const now = audioCtx.currentTime;
             
-            // Update powerup timer bar
-            if (activePowerup) {
-                const timeLeft = powerupEndTime - audioCtx.currentTime;
-                const percentage = (timeLeft / 5) * 100;
-                document.getElementById('powerup-timer-fill').style.width = Math.max(0, percentage) + '%';
+            // Update each active powerup
+            for (let i = activePowerups.length - 1; i >= 0; i--) {
+                const powerup = activePowerups[i];
+                
+                if (now >= powerup.endTime) {
+                    // Powerup expired
+                    if (powerup.type.name === 'slow') {
+                        // Only reset speed if no other slow powerups active
+                        const hasOtherSlow = activePowerups.some((p, idx) => 
+                            idx !== i && p.type.name === 'slow' && now < p.endTime
+                        );
+                        if (!hasOtherSlow) gameSpeed = 1;
+                    }
+                    
+                    // Remove display element
+                    const display = document.getElementById(powerup.id);
+                    if (display) display.remove();
+                    
+                    // Remove from array
+                    activePowerups.splice(i, 1);
+                } else {
+                    // Update timer bar
+                    const timeLeft = powerup.endTime - now;
+                    const percentage = (timeLeft / 5) * 100;
+                    const fill = document.getElementById(powerup.id + '-fill');
+                    if (fill) {
+                        fill.style.width = Math.max(0, percentage) + '%';
+                    }
+                }
             }
         }
 
@@ -1702,7 +1823,7 @@
                     
                     if (!bomb && Math.random() < 0.1) {
                         hasPowerup = true;
-                        powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+                        powerupType = getRandomPowerup(); // Use weighted selection
                     }
                     
                     fruits.push(new Fruit(bomb, hasPowerup, powerupType)); 
@@ -1751,16 +1872,9 @@
                 const f = fruits[i];
                 if (!f.update() || f.sliced) {
                     if (!f.sliced && !f.isBomb && !f.hasPowerup && f.y > canvas.height) {
-                        combo = 0; comboEl.innerText = "0";
+                        combo = 0; 
+                        comboEl.innerText = "0";
                         comboEl.style.fontSize = '70px';
-                        comboEl.style.transition = 'none';
-                        
-                        // Clear combo decay timer
-                        if (comboDecayTimer) {
-                            clearInterval(comboDecayTimer);
-                            comboDecayTimer = null;
-                        }
-                        
                         misses++;
                         
                         if (difficulty !== 'easy') {
@@ -1830,6 +1944,9 @@
         }
 
         function updateMouse(e) {
+            // Ignore manual input in bot mode
+            if (botPlay) return;
+            
             const rect = canvas.getBoundingClientRect();
             const cx = (e.touches && e.touches.length) ? e.touches[0].clientX : e.clientX;
             const cy = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
@@ -1837,11 +1954,11 @@
             if (isMouseDown) mouseTrail.push({x: mouseX, y: mouseY});
         }
         
-        window.addEventListener('mousedown', () => isMouseDown = true);
-        window.addEventListener('mouseup', () => isMouseDown = false);
+        window.addEventListener('mousedown', () => { if (!botPlay) isMouseDown = true; });
+        window.addEventListener('mouseup', () => { if (!botPlay) isMouseDown = false; });
         window.addEventListener('mousemove', updateMouse);
-        window.addEventListener('touchstart', (e) => { isMouseDown = true; updateMouse(e); });
-        window.addEventListener('touchend', () => isMouseDown = false);
+        window.addEventListener('touchstart', (e) => { if (!botPlay) { isMouseDown = true; updateMouse(e); } });
+        window.addEventListener('touchend', () => { if (!botPlay) isMouseDown = false; });
         window.addEventListener('touchmove', (e) => { e.preventDefault(); updateMouse(e); }, {passive: false});
 
         // Add event listeners for buttons (no inline onclick due to CSP)
